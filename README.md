@@ -3,15 +3,36 @@
 ## 🧩 Introduction
 This project provides a ready-to-use ESP32 template featuring:
 - ✅ Multi-AP Wi-Fi connection using `WiFiMulti`  
-- ✅ OTA updates via **PlatformIO → OTA Upload** and Monitor
+- ✅ OTA updates via **PlatformIO → OTA Upload** and Monitor; including failback to UART with no config change needed!
 - ✅ mDNS support (with mDNS hostname resolution automatically)
 - ✅ TelnetStream for debugging 
+- ✅ Buzz + Blink RTOS tasks for your conviniene! so you can focus on your main task!
+This suitable for custom Robotic project and was build for my micromouse setup, I recommend you to use ESPHome for IOT project!
 
 ### 🛠 Requirements
 - [Visual Studio Code](https://code.visualstudio.com/)
 - [PlatformIO extension](https://platformio.org/install/ide?install=vscode)
 - ESP32 development board (e.g., `esp32dev`)
 
+## ⚙️ Usage Example
+I highly recommend using secret.h to prevent your SSID from leak!
+```cpp
+#include <secret.h>
+#include "utils.h"
+
+void setup() {
+  addWifiAP(SECRET_SSID1, SECRET_PASS1);
+  addWifiAP("ssid2", "12345678");
+  // Add more networks as needed
+  setupServers(true);  // true = reset if cannot connectwifi!
+  setBlink(2000); //blink at 0.5Hz
+  tone(2000, 100); //2000Hz tone for 100ms
+}
+
+void loop() {
+  // Your main loop logic
+}
+````
 ---
 
 ## 📁 Project Structure
@@ -24,9 +45,10 @@ project_dir
 │   │   ├── include
 │   │   │   └── utils.h
 │   │   └── src
-│   │       └── utils.cpp
+│   │       └── utils.cpps
 ├── scripts
-│   └── resolve_ota.py
+│   ├── resolve_ota.py
+│   └── prevent_uart.py
 ├── src
 │   └── main.cpp
 ├── platformio.ini
@@ -40,28 +62,13 @@ project_dir
 |------|--------------|
 | `lib/Utils` | Contains Wi-Fi setup, Telnet server, and OTA utility functions |
 | `scripts/resolve_ota.py` | Resolves mDNS names (`.local`) to IP for OTA uploads |
+| `scripts/prevent_uart.py` | Cancel UART upload if OTA success! |
 | `src/main.cpp` | Your main Arduino sketch |
 | `platformio.ini` | PlatformIO project configuration |
 | `README.md` | This documentation |
 
 ---
 
-## ⚙️ Usage Example
-
-```cpp
-#include "utils.h"
-
-void setup() {
-  addWifiAP("ssid1", "12345678");
-  addWifiAP("ssid2", "12345678");
-  // Add more networks as needed
-  setupServers(true);  // true = enable OTA + Telnet
-}
-
-void loop() {
-  // Your main loop logic
-}
-````
 
 ## 🧰 Tips
 

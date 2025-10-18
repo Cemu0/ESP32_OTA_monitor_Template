@@ -3,16 +3,53 @@
 bool enable_led_flag = true;
 bool enable_buzz_flag = true;
 
+int buzz_flag = 0;
+int freq_flag = 0;
+
+uint32_t led_blink_frequence = 100;
+bool led_status = false;
+bool is_uploading = false;
+
 WiFiMulti wifiMulti;
 
 TaskHandle_t wifiTaskHandle;
+TaskHandle_t buzzTaskHandle;
+TaskHandle_t ledTaskHandle;
 
 void handleOTA(void *parameter) {
   // This runs on Core 0
-  Serial.printf("[Task] WiFi/Command task running on core %d\n", xPortGetCoreID());
   for (;;) {
-    delay(1000);             // yield to other tasks
+    delay(50);             // yield to other tasks
     ArduinoOTA.handle();
+  }
+}
+
+void handleBuzz(void *parameter) {
+  // This runs on Core 0
+  for (;;) {
+    delay(100);             // yield to other tasks
+    if(buzz_flag && enable_buzz_flag){
+        ledcWriteTone(0, freq_flag);
+        if (buzz_flag != 0){
+            delay(buzz_flag); //this also prevent the 
+            ledcWriteTone(0, 0);
+        }
+        buzz_flag = 0;
+    }
+  }
+}
+
+void handleLed(void *parameter) {
+  // This runs on Core 0
+  for (;;) {
+    if(led_blink_frequence){
+        digitalWrite(LED_SIG, led_status);
+        led_status = !led_status;
+        delay(led_blink_frequence);
+    }else{
+        digitalWrite(LED_SIG, 1);
+        delay(100);             // yield to other tasks
+    }
   }
 }
 
@@ -30,23 +67,45 @@ void setupServers(const bool reset, bool enable_led, bool enable_buzz) {
     // esp_wifi_stop();
     Serial.begin(115200);
 
-    if(enable_led_flag)
+    if(enable_led_flag){
         pinMode(LED_SIG, OUTPUT);
+    }
     if(enable_buzz_flag){
         pinMode(BUZZ_PIN,OUTPUT);
         ledcSetup(0, 2000, 8); // setup beeper
         ledcAttachPin(BUZZ_PIN, 0); // attach beeper
-        tone();
+        digitalWrite(LED_SIG, 1);
     }
+    xTaskCreatePinnedToCore(
+        handleBuzz,    // Task function
+        "handleBuzz",  // Name
+        MINIMUM_RTOS_STACK_SIZE,               // Stack size
+        NULL,               // Params
+        2,                  // Priority (low)
+        &buzzTaskHandle,    // Task handle
+        0                   // Core 0
+    );
+    xTaskCreatePinnedToCore(
+        handleLed,    // Task function
+        "handleLed",  // Name
+        MINIMUM_RTOS_STACK_SIZE,               // Stack size
+        NULL,               // Params
+        2,                  // Priority (low)
+        &ledTaskHandle,    // Task handle
+        0                   // Core 0
+    );
+
+    tone(1000);
+    delay(100); //wait for wifi reset!
 
     WiFi.setSleep(false);
     WiFi.mode(WIFI_STA);
     unsigned long timer = millis();
 
-    Serial.println("ConnectingWIFI..."); 
+    Serial.println("ConnectingWIFI"); 
     unsigned long start = millis();
     while (wifiMulti.run() != WL_CONNECTED && millis() - start < WL_WAIT_CONNECT_TIME) {
-        delay(200);
+        delay(500);
         Serial.print(".");
     }
     if(WiFi.status() != WL_CONNECTED && reset){
@@ -60,24 +119,29 @@ void setupServers(const bool reset, bool enable_led, bool enable_buzz) {
         Serial.println(WiFi.localIP());
     }
 
-    if (!MDNS.begin("myesp32")) {
+    if (!MDNS.begin(DEVICE_NAME)) {
         Serial.println("Error starting mDNS!");
     } else {
         Serial.println("mDNS responder started");
     }
 
-    ArduinoOTA.setHostname("myesp32");
+    ArduinoOTA.setHostname(DEVICE_NAME);
     ArduinoOTA
-        .onStart([]() { Serial.println("OTA Start");})
-        .onEnd([]() { Serial.println("\nOTA End");})
+        .onStart([]() { 
+            is_uploading = true;
+            setBlink(0); 
+            Serial.println("OTA Start");
+        })
+        .onEnd([]() { 
+            //will reset automatically!
+            Serial.println("\nOTA End");
+        })
         .onProgress([](unsigned int progress, unsigned int total) {
+            uint32_t cal_progress = progress / (total / 100);
             if(enable_led_flag)
-                digitalWrite(LED_SIG, HIGH);
-            float cal_progress = progress / (total / 100);
+                digitalWrite(LED_SIG, progress % 3); //cool effect
             Serial.printf("Progress: %u%%\r", cal_progress);
             TelnetStream.printf("Progress: %u%%\r", cal_progress);
-            if(enable_led_flag)
-                digitalWrite(LED_SIG, LOW);
         })
         .onError([](ota_error_t error) {
             Serial.printf("Error[%u]: ", error);
@@ -85,8 +149,6 @@ void setupServers(const bool reset, bool enable_led, bool enable_buzz) {
     ArduinoOTA.begin();
     Serial.println("OTA Ready");
     TelnetStream.begin(); // starts TCP server on port 23
-
-    
 
     // Launch command handler on Core 0
     xTaskCreatePinnedToCore(
@@ -98,12 +160,22 @@ void setupServers(const bool reset, bool enable_led, bool enable_buzz) {
         &wifiTaskHandle,    // Task handle
         0                   // Core 0
     );
+    
+    setBlink(1000);
 }
 
 void tone(int freq, unsigned long duration) {
-  ledcWriteTone(0, freq);
-  if (duration != 0){
-    delay(duration);
-    ledcWriteTone(0, 0);
-  }
+    buzz_flag = duration;
+    freq_flag = freq;
+}
+
+void setBlink(uint16_t freq){
+    //lower the freq will led to unstable system!
+    if(led_blink_frequence < 50)
+        led_blink_frequence = 50;
+    led_blink_frequence = freq;
+}
+
+bool isUploading(){
+    return is_uploading;
 }
