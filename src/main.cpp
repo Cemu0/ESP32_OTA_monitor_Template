@@ -1,4 +1,4 @@
-#include <../env/secret.h>
+#include <../env/secret.h> //you need to create your own secret.h from secret.template.h
 #include "utils.h"
 
 void setup() {
