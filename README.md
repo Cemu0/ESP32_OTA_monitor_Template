@@ -15,9 +15,16 @@ This suitable for custom Robotic project and was build for my micromouse setup, 
 - ESP32 development board (e.g., `esp32dev`)
 
 ## ⚙️ Usage Example
+
+
 I highly recommend using secret.h to prevent your SSID from leak!
+
+When cloned this repo, use need to copy the env/secret.template.h to env/secret.h and config the correct env.
+
+Then you can use like this:
+
 ```cpp
-#include <secret.h>
+#include <../env/secret.h>
 #include "utils.h"
 
 void setup() {
