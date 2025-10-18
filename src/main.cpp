@@ -1,8 +1,9 @@
-#include <secret.h>
+#include <../env/secret.h>
 #include "utils.h"
 
 void setup() {
   addWifiAP(SECRET_SSID1, SECRET_PASS1);
+  addWifiAP(SECRET_SSID2, SECRET_PASS2);
   addWifiAP("ssid2", "12345678");
   // ...
   setupServers(true);

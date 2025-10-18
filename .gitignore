@@ -4,4 +4,4 @@
 .vscode/launch.json
 .vscode/ipch
 .disable_uart
-src/secret.h
+# env/
